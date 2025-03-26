@@ -44,7 +44,7 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
     })) as BuildParams;
 
     // Log del resultat de generateObjectDeprecated
-    elizaLogger.debug("Resultat de generateObjectDeprecated:",util.inspect(unsignedTx, { depth: 2, maxArrayLength: 10 }));
+    //elizaLogger.debug("Resultat de generateObjectDeprecated:",util.inspect(unsignedTx, { depth: 2, maxArrayLength: 10 }));
 
 
     // Validem que s'hagi generat un objecte vàlid

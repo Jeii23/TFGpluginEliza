@@ -46,7 +46,7 @@ export const createUnsignedTxAction: Action = {
         state = await runtime.updateRecentMessageState(state);
       }
       // Log per comprovar l'estat actualitzat
-      elizaLogger.debug("State actualitzat:",util.inspect(message, { depth: 2, maxArrayLength: 10 }));
+      //elizaLogger.debug("State actualitzat:",util.inspect(message, { depth: 2, maxArrayLength: 10 }));
 
       // ***************************************************************************
 
