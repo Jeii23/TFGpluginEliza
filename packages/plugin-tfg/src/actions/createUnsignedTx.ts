@@ -1,4 +1,5 @@
 import util from "util";
+
 import {
   elizaLogger,
   Action,
@@ -21,9 +22,9 @@ export const createUnsignedTxAction: Action = {
     "BUILD_TRANSACTION",
     "createUnsignedTx"
   ],
-  description:
-    "Generate a JSON for an unsigned transaction, with the fields 'from', 'to', and 'value'.",
+  description: "Generate a JSON for an unsigned transaction, with the fields 'from', 'to', and 'value'.",
   validate: async (runtime: IAgentRuntime) => {
+    // Validem la configuració del TFG per assegurar-nos que el camp PUBLIC_ADDRESS està definit
     await validateTFGConfig(runtime);
     return true;
   },
@@ -35,25 +36,27 @@ export const createUnsignedTxAction: Action = {
     callback: HandlerCallback
   ) => {
     try {
-      // Registra l'estat inicial amb un inspect limitat
-      elizaLogger.info("Initial state:", util.inspect(state, { depth: 2, maxArrayLength: 10 }));
-
-      // Componem l'estat amb el missatge de l'usuari
-      if (!state) {
-        state = await runtime.composeState(message);
-        elizaLogger.info("State after composeState:", util.inspect(state, { depth: 2, maxArrayLength: 10 }));
-      } else {
-        state = await runtime.updateRecentMessageState(state);
-        elizaLogger.info("State after updateRecentMessageState:", util.inspect(state, { depth: 2, maxArrayLength: 10 }));
-      }
-
+      // Validem la configuració
       await validateTFGConfig(runtime);
 
+      // **** Canvi Realitzat: Actualitzem l'estat per incloure el missatge recent ****
+      if (!state) {
+        state = (await runtime.composeState(message)) as State;
+      } else {
+        state = await runtime.updateRecentMessageState(state);
+      }
+      // Log per comprovar l'estat actualitzat
+      elizaLogger.debug("State actualitzat:",util.inspect(message, { depth: 2, maxArrayLength: 10 }));
+
+      // ***************************************************************************
+
+      // Creem el servei per construir la transacció unsigned
       const unsignedTxService = createUnsignedTxService(runtime);
+
+      // Generem la transacció unsigned a partir de l'estat actual (ara amb el missatge actualitzat)
       const unsignedTx = await unsignedTxService.createUnsignedTx(state);
 
       elizaLogger.success("Successfully created an unsigned transaction");
-      elizaLogger.info("Unsigned transaction details:", util.inspect(unsignedTx, { depth: 2 }));
 
       if (callback) {
         callback({

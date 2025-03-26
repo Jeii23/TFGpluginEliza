@@ -1,5 +1,9 @@
 import { parseEther } from "viem";
+import util from "util";
+
 import {
+  elizaLogger,
+
   composeContext,
   generateObjectDeprecated,
   ModelClass,
@@ -16,32 +20,43 @@ import { unsignedTxTemplate } from "./template";
  * un objecte JSON amb els camps 'from', 'to' i 'value'.
  */
 export const createUnsignedTxService = (runtime: IAgentRuntime) => {
-  
+
   // Funció per construir els paràmetres de la transacció unsigned
   const buildUnsignedTx = async (state: State): Promise<BuildParams> => {
     // Componem el context a partir de la plantilla i l'estat actual
+    // Dins de buildUnsignedTx del servei:
+   // elizaLogger.debug("State a buildUnsignedTx:", util.inspect(state, { depth: 2, maxArrayLength: 10 }));
+
     const context = composeContext({
       state,
       template: unsignedTxTemplate,
     });
-  
+
+    // Log per veure el context composat
+   // elizaLogger.debug("Context composat:", context);
+
+
     // Generem els paràmetres utilitzant el model especificat
     const unsignedTx = (await generateObjectDeprecated({
       runtime,
       context,
       modelClass: ModelClass.SMALL,
     })) as BuildParams;
-  
+
+    // Log del resultat de generateObjectDeprecated
+    elizaLogger.debug("Resultat de generateObjectDeprecated:",util.inspect(unsignedTx, { depth: 2, maxArrayLength: 10 }));
+
+
     // Validem que s'hagi generat un objecte vàlid
     if (!unsignedTx) {
       throw new Error("Error: No s'han pogut generar els paràmetres per la transacció unsigned.");
     }
-  
+
     // Validem que existeixi el camp 'toAddress'
     if (!unsignedTx.toAddress || unsignedTx.toAddress.trim() === "") {
       throw new Error("Error: Falta 'toAddress' en els paràmetres de la transacció unsigned.");
     }
-  
+
     // Obtenim el valor de 'EVM_PUBLIC_ADDRESS' des de la configuració i validem
     const envFromAddress = runtime.getSetting("EVM_PUBLIC_ADDRESS");
     if (envFromAddress) {
@@ -56,16 +71,16 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
         ? (unsignedTx.fromAddress.trim() as `0x${string}`)
         : "0xElTeuCompte" as `0x${string}`;
     }
-  
+
     // Neteja d'espais en els camps d'adreces
     unsignedTx.toAddress = unsignedTx.toAddress.trim() as `0x${string}`;
     if (unsignedTx.fromAddress) {
       unsignedTx.fromAddress = unsignedTx.fromAddress.trim() as `0x${string}`;
     }
-  
+
     return unsignedTx;
   };
-  
+
   /**
    * Crea una transacció unsigned en format JSON.
    * @param state - Estat actual que conté els paràmetres.
@@ -75,18 +90,27 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
     try {
       const params = await buildUnsignedTx(state);
       // Convertim la quantitat (ethers) a la representació hexadecimal en wei
+      // Convertim la quantitat a hexadecimal
       const valueHex = "0x" + parseEther(params.amount || "1").toString(16);
-  
+
+      // Log abans de retornar
+      elizaLogger.debug("Unsigned Tx final:", JSON.stringify({
+        from: params.fromAddress ? params.fromAddress.trim() : "0xElTeuCompte",
+        to: params.toAddress ? params.toAddress.trim() : "0xReceptorAddress1234567890abcdef",
+        value: valueHex,
+      }, null, 2));
+
       return {
         from: params.fromAddress ? params.fromAddress.trim() : "0xElTeuCompte",
         to: params.toAddress ? params.toAddress.trim() : "0xReceptorAddress1234567890abcdef",
         value: valueHex,
       };
+
     } catch (error: any) {
       console.error("Error creating unsigned transaction:", error.message);
       throw error;
     }
   };
-  
+
   return { createUnsignedTx };
 };
