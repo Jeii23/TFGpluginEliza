@@ -19,6 +19,7 @@
     ],
     "dependencies": {
         "@elizaos/core": "workspace:*",
+        "ethers": "^5.7.2",
         "tsup": "8.3.5",
         "zod": "^3.22.4"
     },

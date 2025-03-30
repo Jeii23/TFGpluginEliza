@@ -1,5 +1,6 @@
 import { parseEther } from "viem";
 import util from "util";
+import { HDNode } from "ethers/lib/utils";
 
 import {
   elizaLogger,
@@ -13,6 +14,27 @@ import {
 
 import type { BuildParams } from "./type";
 import { unsignedTxTemplate } from "./template";
+import { categoryIndexes } from "./type";
+
+
+/**
+ * Deriva una adreça Ethereum a partir de la xpub i la categoria especificada.
+ * @param xpub Clau pública estesa (xpub) del wallet.
+ * @param category Nom de la categoria (per exemple, "viatges").
+ * @returns Adreça Ethereum derivada corresponent a la categoria.
+ */
+function deriveAddress(xpub: string, category: string): string {
+  const normalizedCategory = category.toLowerCase();
+  const index = categoryIndexes[normalizedCategory];
+  if (index === undefined) {
+    throw new Error(`Categoria '${category}' no reconeguda.`);
+  }
+  const masterNode = HDNode.fromExtendedKey(xpub);
+  // Assumim la ruta "m/<index>"; ajusta la ruta si el teu esquema ho requereix
+  const childNode = masterNode.derivePath(`m/${index}`);
+  return childNode.address;
+}
+
 
 /**
  * Aquest servei encapsula la creació d'una transacció unsigned.
@@ -24,62 +46,73 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
   // Funció per construir els paràmetres de la transacció unsigned
   const buildUnsignedTx = async (state: State): Promise<BuildParams> => {
     // Componem el context a partir de la plantilla i l'estat actual
-    // Dins de buildUnsignedTx del servei:
-   // elizaLogger.debug("State a buildUnsignedTx:", util.inspect(state, { depth: 2, maxArrayLength: 10 }));
-
     const context = composeContext({
       state,
       template: unsignedTxTemplate,
     });
-
-    // Log per veure el context composat
-   // elizaLogger.debug("Context composat:", context);
-
-
+  
     // Generem els paràmetres utilitzant el model especificat
     const unsignedTx = (await generateObjectDeprecated({
       runtime,
       context,
       modelClass: ModelClass.SMALL,
     })) as BuildParams;
-
-    // Log del resultat de generateObjectDeprecated
-    //elizaLogger.debug("Resultat de generateObjectDeprecated:",util.inspect(unsignedTx, { depth: 2, maxArrayLength: 10 }));
-
-
+  
+    // Exemple de prova per a la derivació (elimina o comenta aquest bloc en producció)
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        const xpubTest = "xpub6EUpqzz3SSfuApUZZYkQgXb8TA2ahV5xCnfTqQQSLZV6yJhFmB1LtJwHvFHGPy2XyQxyQ7AYLWvvWWxcksrLRkhzpgU2Wb4cMuWq7uD2CxZ";
+        const adrecaViatges = deriveAddress(xpubTest, "viatges");
+        console.log("Adreça per a 'viatges':", adrecaViatges);
+      } catch (error) {
+        console.error("Error en derivar adreça:", error);
+      }
+    }
+  
     // Validem que s'hagi generat un objecte vàlid
     if (!unsignedTx) {
       throw new Error("Error: No s'han pogut generar els paràmetres per la transacció unsigned.");
     }
-
+  
     // Validem que existeixi el camp 'toAddress'
     if (!unsignedTx.toAddress || unsignedTx.toAddress.trim() === "") {
       throw new Error("Error: Falta 'toAddress' en els paràmetres de la transacció unsigned.");
     }
-
-    // Obtenim el valor de 'EVM_PUBLIC_ADDRESS' des de la configuració i validem
-    const envFromAddress = runtime.getSetting("EVM_PUBLIC_ADDRESS");
-    if (envFromAddress) {
-      const trimmedEnv = envFromAddress.trim();
-      if (trimmedEnv.startsWith("0x")) {
-        unsignedTx.fromAddress = trimmedEnv as `0x${string}`;
-      } else {
-        throw new Error("EVM_PUBLIC_ADDRESS must be a valid hex string starting with '0x'");
+  
+    // Si hi ha un camp "category" a l'estat, intentem derivar l'adreça de "fromAddress"
+    if (state.category) {
+      const xpub = runtime.getSetting("EVM_PUBLIC_XPUB");
+      try {
+        unsignedTx.fromAddress = deriveAddress(xpub, state.category as string) as `0x${string}`;
+        elizaLogger.debug(`Utilitzant adreça derivada per categoria '${state.category}': ${unsignedTx.fromAddress}`);
+      } catch (error) {
+        elizaLogger.warn("Error en derivar l'adreça per categoria, s'utilitzarà l'adreça per defecte:", error);
+        const envFromAddress = runtime.getSetting("EVM_PUBLIC_ADDRESS");
+        if (envFromAddress && envFromAddress.trim().startsWith("0x")) {
+          unsignedTx.fromAddress = envFromAddress.trim() as `0x${string}`;
+        } else {
+          unsignedTx.fromAddress = "0xElTeuCompte" as `0x${string}`;
+        }
       }
     } else {
-      unsignedTx.fromAddress = unsignedTx.fromAddress
-        ? (unsignedTx.fromAddress.trim() as `0x${string}`)
-        : "0xElTeuCompte" as `0x${string}`;
+      // Fallback: utilitza EVM_PUBLIC_ADDRESS si no s'ha proporcionat cap categoria
+      const envFromAddress = runtime.getSetting("EVM_PUBLIC_ADDRESS");
+      if (envFromAddress && envFromAddress.trim().startsWith("0x")) {
+        unsignedTx.fromAddress = envFromAddress.trim() as `0x${string}`;
+      } else {
+        unsignedTx.fromAddress = "0xElTeuCompte" as `0x${string}`;
+      }
     }
-
+  
     // Neteja d'espais en els camps d'adreces
     unsignedTx.toAddress = unsignedTx.toAddress.trim() as `0x${string}`;
     if (unsignedTx.fromAddress) {
       unsignedTx.fromAddress = unsignedTx.fromAddress.trim() as `0x${string}`;
     }
-
+  
     return unsignedTx;
   };
+  
 
   /**
    * Crea una transacció unsigned en format JSON.

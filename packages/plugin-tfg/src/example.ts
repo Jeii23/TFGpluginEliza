@@ -1,5 +1,26 @@
 import { ActionExample } from "@elizaos/core";
 
+
+export const manageSubaccountsExamples: ActionExample[][] = [
+    [
+        {
+          user: "assistant",
+          content: {
+            text: "Llista els meus subcomptes",
+            action: "MANAGE_SUBACCOUNTS",
+          },
+        },
+        {
+          user: "user",
+          content: {
+            text: "Mostra'm els meus subcomptes",
+            action: "MANAGE_SUBACCOUNTS",
+          },
+        },
+      ],
+];
+
+
 export const getCreateUnsignedTxExamples: ActionExample[][] = [
     [
         {
