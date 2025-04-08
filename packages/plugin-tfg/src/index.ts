@@ -1,16 +1,15 @@
-
-
-import { Plugin } from "@elizaos/core";
-import {createUnsignedTxAction } from "./actions/createUnsignedTx";
-
+import { type Plugin } from "@elizaos/core";
+import { createUnsignedTxAction } from "./actions/createUnsignedTx";
+import { manageSubaccountsAction } from "./actions/manageSubaccountsAction";
+import { subaccountProvider } from "./providers/subaccount";
 
 export const tfgPlugin: Plugin = {
     name: "tfg",
-    description: "TFG to secure tx",
-    actions: [ createUnsignedTxAction],
-
+    description: "TFG blockchain integration plugin",
+    providers: [subaccountProvider],
     evaluators: [],
-    providers: [],
+    services: [],
+    actions: [createUnsignedTxAction, manageSubaccountsAction],
 };
 
 export default tfgPlugin;

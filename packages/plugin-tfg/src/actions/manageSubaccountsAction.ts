@@ -7,27 +7,15 @@ import {
   IAgentRuntime,
   Memory,
   State,
+  composeContext,
+  generateObjectDeprecated,
+  ModelClass,
 } from "@elizaos/core";
-import { validateTFGConfig } from "../environment";
-import { HDNode } from "ethers/lib/utils";
 import { categoryIndexes } from "../type";
+import { validateTFGConfig } from "../environment";
 import { manageSubaccountsExamples } from "../example";
-
-
-/**
- * Deriva una adreça Ethereum a partir d'una xpub i el nom d'una categoria.
- * La ruta s'assumeix com "m/<index>" (ajusta si necessites un altre esquema).
- */
-function deriveAddress(xpub: string, category: string): string {
-  const normalizedCategory = category.toLowerCase();
-  const index = categoryIndexes[normalizedCategory];
-  if (index === undefined) {
-    throw new Error(`Categoria '${category}' no reconeguda.`);
-  }
-  const masterNode = HDNode.fromExtendedKey(xpub);
-  const childNode = masterNode.derivePath(`m/${index}`);
-  return childNode.address;
-}
+import { initSubaccountProvider } from "../providers/subaccount";
+import { manageSubaccountsTemplate } from "../template";
 
 export const manageSubaccountsAction: Action = {
   name: "MANAGE_SUBACCOUNTS",
@@ -46,30 +34,78 @@ export const manageSubaccountsAction: Action = {
     callback: HandlerCallback
   ) => {
     try {
-      // Validem la configuració per obtenir la xpub
-      const config = await validateTFGConfig(runtime);
+      // Actualitzem l'estat amb el missatge recent
+      if (!state) {
+        state = (await runtime.composeState(message)) as State;
+      } else {
+        state = await runtime.updateRecentMessageState(state);
+      }
 
-      // Derivem una adreça per a cada categoria definida
-      const subaccounts: { [key: string]: string } = {};
-      for (const category in categoryIndexes) {
-        try {
-          subaccounts[category] = deriveAddress(config.EVM_PUBLIC_XPUB, category);
-        } catch (error) {
-          elizaLogger.warn(`Error derivant l'adreça per a la categoria '${category}':`, error);
-        }
+      // Componem el context a partir del template
+      const context = composeContext({
+        state,
+        template: manageSubaccountsTemplate,
+      });
+
+      // Generem els paràmetres utilitzant el model
+      const params = await generateObjectDeprecated({
+        runtime,
+        context,
+        modelClass: ModelClass.SMALL,
+      });
+
+      // Obtenim el provider de subcomptes
+      const subaccountProvider = await initSubaccountProvider(runtime);
+      
+      // Processem l'acció segons el tipus
+      switch (params.action) {
+        case "list":
+          // Obtenim tots els subcomptes
+          const subaccounts = subaccountProvider.getAllSubaccounts();
+          elizaLogger.success("Subcomptes derivats correctament.");
+          
+          if (callback) {
+            callback({
+              text: `Subcomptes:\n${util.inspect(subaccounts, { depth: null })}`,
+              content: {
+                success: true,
+                subaccounts,
+              },
+            });
+          }
+          break;
+
+        case "create":
+          // Creem un nou subcompte
+          const category = params.category.toLowerCase();
+          const subaccount = subaccountProvider.getSubaccount(category);
+          
+          if (subaccount) {
+            elizaLogger.success(`Subcompte per a la categoria '${category}' creat correctament.`);
+            
+            if (callback) {
+              callback({
+                text: `Subcompte per a la categoria '${category}' creat correctament.\nAdreça: ${subaccount}`,
+                content: {
+                  success: true,
+                  category,
+                  address: subaccount,
+                },
+              });
+            }
+          } else {
+            throw new Error(`No s'ha pogut crear el subcompte per a la categoria '${category}'`);
+          }
+          break;
+
+        case "delete":
+          // No implementat encara, ja que els subcomptes es deriven de la xpub
+          throw new Error("L'acció 'delete' no està implementada encara");
+          
+        default:
+          throw new Error(`Acció '${params.action}' no reconeguda`);
       }
       
-      elizaLogger.success("Subcomptes derivats correctament.");
-      
-      if (callback) {
-        callback({
-          text: `Subcomptes:\n${util.inspect(subaccounts, { depth: null })}`,
-          content: {
-            success: true,
-            subaccounts,
-          },
-        });
-      }
       return true;
     } catch (error: any) {
       elizaLogger.error("Error en la gestió de subcomptes:", error);
@@ -82,6 +118,5 @@ export const manageSubaccountsAction: Action = {
       return false;
     }
   },
-    examples: manageSubaccountsExamples as ActionExample[][],
-  
+  examples: manageSubaccountsExamples as ActionExample[][],
 } as Action;

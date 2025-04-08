@@ -5,6 +5,7 @@ export interface BuildParams {
     toAddress: Address;
     amount: string;
     data?: `0x${string}`;
+    category?: string; // Afegida com a propietat opcional
 }
 
 // Mapping de categories amb els seus índexs associats
@@ -15,4 +16,3 @@ export const categoryIndexes: { [key: string]: number } = {
     "estalvi_llarg_termini": 3,
     // Afegir altres categories si cal
 };
-
