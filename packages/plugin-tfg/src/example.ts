@@ -26,13 +26,13 @@ export const getCreateUnsignedTxExamples: ActionExample[][] = [
         {
             user: "{{user1}}",
             content: {
-                text: "Create an unsigned transaction from 0xElTeuCompte to 0xReceptorAddress1234567890abcdef",
+                text: "Create an unsigned transaction from ElTeuCompte to 0xReceptorAddress1234567890abcdef",
             },
         },
         {
             user: "{{agent}}",
             content: {
-                text: "Generating an unsigned transaction from 0xElTeuCompte to 0xReceptorAddress1234567890abcdef",
+                text: "Generating an unsigned transaction from ElTeuCompte to 0xReceptorAddress1234567890abcdef",
                 action: "CREATE_UNSIGNED_TX",
             },
         }

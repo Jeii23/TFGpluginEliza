@@ -69,7 +69,8 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
   
     // Tractem el fromAddress de la mateixa manera que toAddress:
     // Si el model ha retornat un valor vàlid per fromAddress, l'utilitzem; en cas contrari, fem fallback a EVM_PUBLIC_ADDRESS.
-    if (unsignedTx.fromAddress && unsignedTx.fromAddress.trim() !== "") {
+    if (unsignedTx.fromAddress && unsignedTx.fromAddress.trim().startsWith("0x")) {
+      elizaLogger.info(`S'ha trobat un fromAddress vàlid: ${unsignedTx.fromAddress.trim()}`);
       unsignedTx.fromAddress = unsignedTx.fromAddress.trim() as `0x${string}`;
     } else {
       const envFromAddress = runtime.getSetting("EVM_PUBLIC_ADDRESS");

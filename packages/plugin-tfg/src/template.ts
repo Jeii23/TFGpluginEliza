@@ -7,7 +7,7 @@ First, review the recent messages from the conversation:
 </recent_messages>
 
 Your goal is to extract the following information about the requested unsigned transaction:
-1. "fromAddress": the sender's Ethereum address. If not provided in the message, determine it based on the user's category: if a category is specified, use the Ethereum subaccount address derived for that category; if no category is provided, use "0xElTeuCompte".
+1. "fromAddress": the sender's Ethereum address. If not provided in the message, determine it based on the user's category: if a category is specified, use the Ethereum subaccount address derived for that category; if no category is provided, use "ElTeuCompte".
 2. "toAddress": the recipient's Ethereum address as provided in the message.
 3. "amount": the amount in ETH as a string. If the amount is written with a comma (e.g., "0,0001"), convert it to use a dot (e.g., "0.0001").
 
@@ -19,7 +19,7 @@ Before providing the final JSON output, show your reasoning process inside <anal
    - Quote the segment that might indicate the sender address, if present.
 
 2. Validate the extracted information:
-   - For "fromAddress", if missing or invalid, default to "0xElTeuCompte".
+   - For "fromAddress", if missing or invalid, default to "ElTeuCompte".
    - For "toAddress", ensure it starts with "0x" and is 42 characters long.
    - For "amount", ensure the format is correct (convert commas to dots if needed).
 
