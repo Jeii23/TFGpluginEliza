@@ -22,7 +22,6 @@ export const manageSubaccountsAction: Action = {
   similes: ["MANAGE_SUBACCOUNTS", "LIST_SUBACCOUNTS", "SUBACCOUNTS"],
   description: "Llista i gestiona els subcomptes derivats a partir de la xpub del wallet.",
   validate: async (runtime: IAgentRuntime) => {
-    // Validem que la configuració inclogui la xpub
     await validateTFGConfig(runtime);
     return true;
   },
@@ -34,36 +33,29 @@ export const manageSubaccountsAction: Action = {
     callback: HandlerCallback
   ) => {
     try {
-      // Actualitzem l'estat amb el missatge recent
       if (!state) {
         state = (await runtime.composeState(message)) as State;
       } else {
         state = await runtime.updateRecentMessageState(state);
       }
 
-      // Componem el context a partir del template
       const context = composeContext({
         state,
         template: manageSubaccountsTemplate,
       });
 
-      // Generem els paràmetres utilitzant el model
       const params = await generateObjectDeprecated({
         runtime,
         context,
         modelClass: ModelClass.SMALL,
       });
 
-      // Obtenim el provider de subcomptes
       const subaccountProvider = await initSubaccountProvider(runtime);
       
-      // Processem l'acció segons el tipus
       switch (params.action) {
         case "list":
-          // Obtenim tots els subcomptes
           const subaccounts = subaccountProvider.getAllSubaccounts();
           elizaLogger.success("Subcomptes derivats correctament.");
-          
           if (callback) {
             callback({
               text: `Subcomptes:\n${util.inspect(subaccounts, { depth: null })}`,
@@ -76,13 +68,13 @@ export const manageSubaccountsAction: Action = {
           break;
 
         case "create":
-          // Creem un nou subcompte
+          // Per a crear un nou subcompte, utilitzem el mètode createSubaccount
           const category = params.category.toLowerCase();
-          const subaccount = subaccountProvider.getSubaccount(category);
+          const subaccount = subaccountProvider.getSubaccount(category) ||
+                             subaccountProvider.createSubaccount(category);
           
           if (subaccount) {
             elizaLogger.success(`Subcompte per a la categoria '${category}' creat correctament.`);
-            
             if (callback) {
               callback({
                 text: `Subcompte per a la categoria '${category}' creat correctament.\nAdreça: ${subaccount}`,
@@ -99,7 +91,6 @@ export const manageSubaccountsAction: Action = {
           break;
 
         case "delete":
-          // No implementat encara, ja que els subcomptes es deriven de la xpub
           throw new Error("L'acció 'delete' no està implementada encara");
           
         default:

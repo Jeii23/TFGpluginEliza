@@ -53,9 +53,21 @@ Your goal is to extract the following information about the requested subaccount
 1. "action": the subaccount management action requested by the user. It can be "list" or "create". If no clear action is provided, default to "list".
 2. "category": (only required if the action is "create") the name of the category for which a new subaccount should be derived. The category name should be in lowercase. If the category is not provided when the action is "create", then return an error message indicating the missing category.
 
-After your analysis, provide the final output in a JSON markdown block. The response must be a valid JSON object with exactly these keys and no additional text or HTML tags.
+Before providing the final JSON output, show your reasoning process inside <analysis> tags. Follow these steps:
 
-For action "list", the output should be:
+1. Identify the relevant parts of the user's message:
+   - Quote the segment that mentions the desired subaccount management action (e.g., "list" or "create").
+   - Quote the segment that mentions the category name, if the action is "create".
+
+2. Validate the extracted information:
+   - For "action", if missing or unclear, default to "list".
+   - For "category", if the action is "create", ensure it is provided and in lowercase; if missing, report an error.
+
+3. Summarize your analysis.
+
+4. Provide the final JSON output with exactly these keys and no additional text.
+
+After your analysis, provide the final output in a JSON markdown block. For action "list", the output should be:
 
 \`\`\`json
 {

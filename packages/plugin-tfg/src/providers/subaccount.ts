@@ -3,6 +3,24 @@ import { type IAgentRuntime, type Provider, type Memory, type State } from "@eli
 import { categoryIndexes } from "../type";
 import { validateTFGConfig } from "../environment";
 
+
+function deriveAddress(xpub: string, category: string, indexOverride?: number): string {
+  const normalizedCategory = category.toLowerCase();
+  let index: number;
+  if (indexOverride !== undefined) {
+    index = indexOverride;
+  } else {
+    index = categoryIndexes[normalizedCategory];
+    if (index === undefined) {
+      throw new Error(`Categoria '${category}' no reconeguda.`);
+    }
+  }
+  const masterNode = HDNode.fromExtendedKey(xpub);
+  // Derivació relativa sense el prefix "m/"
+  const childNode = masterNode.derivePath(String(index));
+  return childNode.address;
+}
+
 export class SubaccountProvider {
   private xpub: string;
   private subaccounts: { [key: string]: string } = {};
@@ -13,6 +31,7 @@ export class SubaccountProvider {
   }
 
   private initializeSubaccounts() {
+    // Carreguem les categories predefinides
     for (const category in categoryIndexes) {
       try {
         this.subaccounts[category] = this.deriveAddress(category);
@@ -23,15 +42,7 @@ export class SubaccountProvider {
   }
 
   private deriveAddress(category: string): string {
-    const normalizedCategory = category.toLowerCase();
-    const index = categoryIndexes[normalizedCategory];
-    if (index === undefined) {
-      throw new Error(`Category '${category}' not recognized.`);
-    }
-    const masterNode = HDNode.fromExtendedKey(this.xpub);
-    // Deriva només amb el component no-hardened, ja que el xpub no permet derivar camins hardened.
-    const childNode = masterNode.derivePath(String(index));
-    return childNode.address;
+    return deriveAddress(this.xpub, category);
   }
   
   getSubaccount(category: string): string | null {
@@ -41,11 +52,40 @@ export class SubaccountProvider {
   getAllSubaccounts(): { [key: string]: string } {
     return { ...this.subaccounts };
   }
+
+  createSubaccount(category: string): string {
+    const normalizedCategory = category.toLowerCase();
+    if (this.subaccounts[normalizedCategory]) {
+      return this.subaccounts[normalizedCategory];
+    }
+    // Determinem el màxim índex utilitzat en les categories predefinides.
+    let maxPredefinedIndex = -1;
+    for (const cat in categoryIndexes) {
+      if (categoryIndexes[cat] > maxPredefinedIndex) {
+        maxPredefinedIndex = categoryIndexes[cat];
+      }
+    }
+    // Comptem els subcomptes creats que no formen part de les predefinides.
+    const dynamicCount = Object.keys(this.subaccounts).filter(
+      cat => !(cat in categoryIndexes)
+    ).length;
+    const newIndex = maxPredefinedIndex + dynamicCount + 1;
+    const newAddress = deriveAddress(this.xpub, normalizedCategory, newIndex);
+    this.subaccounts[normalizedCategory] = newAddress;
+    return newAddress;
+  }
 }
 
+// Variable per emmagatzemar la instància (singleton)
+let cachedSubaccountProvider: SubaccountProvider | null = null;
+
 export const initSubaccountProvider = async (runtime: IAgentRuntime): Promise<SubaccountProvider> => {
+  if (cachedSubaccountProvider) {
+    return cachedSubaccountProvider;
+  }
   const config = await validateTFGConfig(runtime);
-  return new SubaccountProvider(config.EVM_PUBLIC_XPUB);
+  cachedSubaccountProvider = new SubaccountProvider(config.EVM_PUBLIC_XPUB);
+  return cachedSubaccountProvider;
 };
 
 export const subaccountProvider: Provider = {
@@ -65,4 +105,4 @@ export const subaccountProvider: Provider = {
       return null;
     }
   },
-}; 
+};
