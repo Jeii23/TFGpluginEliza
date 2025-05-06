@@ -53,3 +53,37 @@ export const getCreateUnsignedTxExamples: ActionExample[][] = [
         }
     ],
 ];
+
+
+export const getSeeBalancesExamples: ActionExample[][] = [
+  [
+    {
+      user: "{{user1}}",
+      content: {
+        text: "Digues‑me el balanç de l'adreça de la hipoteca, si us plau.",
+      },
+    },
+    {
+      user: "{{agent}}",
+      content: {
+        text: "Aquí tens el balanç i les darreres transaccions de l'adreça de la hipoteca.",
+        action: "SEE_BALANCES",
+      },
+    },
+  ],
+  [
+    {
+      user: "{{user1}}",
+      content: {
+        text: "What’s the current balance of 0x111122223333444455556666777788889999AAAA?",
+      },
+    },
+    {
+      user: "{{agent}}",
+      content: {
+        text: "Fetching the balance for 0x1111…AAAA",
+        action: "SEE_BALANCES",
+      },
+    },
+  ],
+];

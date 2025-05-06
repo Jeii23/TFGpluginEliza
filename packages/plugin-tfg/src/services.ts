@@ -1,6 +1,7 @@
 import { parseEther } from "viem";
 import util from "util";
 import { HDNode } from "ethers/lib/utils";
+import { ethers } from "ethers";
 
 import {
   elizaLogger,
@@ -11,8 +12,8 @@ import {
   type State,
 } from "@elizaos/core";
 
-import type { BuildParams } from "./type";
-import { unsignedTxTemplate } from "./template";
+import type { BuildParams,BalanceResult } from "./type";
+import { unsignedTxTemplate,seeBalancesTemplate } from "./template";
 import { categoryIndexes } from "./type";
 import { initSubaccountProvider } from "./providers/subaccount";
 
@@ -119,4 +120,140 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
   };
 
   return { createUnsignedTx };
+};
+
+
+
+
+
+/**
+ * Servei que consulta saldo i històric de transaccions a Sepolia.
+ * Cal que la variable d’entorn EVM_PROVIDER_URL estigui definida.
+ */
+export const balanceService = (runtime: IAgentRuntime) => {
+  const getProvider = () =>
+    new ethers.providers.JsonRpcProvider(
+      runtime.getSetting("EVM_PROVIDER_URL") || process.env.EVM_PROVIDER_URL
+    );
+
+  /** Consulta el balanç i (opcionalment) les darreres N transaccions */
+  const getBalanceAndTx = async (
+    address: string,
+    txLimit = 5
+  ): Promise<BalanceResult> => {
+    const provider = getProvider();
+
+    // --- SALDO ---
+    const balanceWei = await provider.getBalance(address);
+    const balanceEth = ethers.utils.formatEther(balanceWei);
+
+    // --- TRANSACCIONS ---
+    // QuickNode RPC personalitzat
+    let txs: BalanceResult["transactions"] = [];
+    try {
+      const txHistory = await provider.send("qn_getTransactionsByAddress", [
+        { address, page: 1, perPage: txLimit },
+      ]);
+      // 1) Extreiem correctament la llista:
+      const items: any[] = txHistory.paginatedItems || [];
+      // 2) Mapegem amb els noms reals:
+      txs = items.map(tx => ({
+        hash: tx.transactionHash,
+        from: tx.fromAddress,
+        to: tx.toAddress,
+        value: ethers.utils.formatEther(tx.value ?? "0"),
+        blockNumber: Number(tx.blockNumber),
+        timeStamp: tx.blockTimestamp
+          ? Math.floor(new Date(tx.blockTimestamp).getTime() / 1000)
+          : undefined,
+      }));
+    } catch (err) {
+      elizaLogger.warn(
+        "No s'ha pogut obtenir l'històric via qn_getTransactionsByAddress – potser el teu endpoint no té el mòdul activat."
+      );
+    }
+    
+
+    return { address, balanceEth, transactions: txs };
+  };
+
+  return { getBalanceAndTx };
+};
+export const createSeeBalancesService = (runtime: IAgentRuntime) => {
+  // 1) Build params via model (determina adreça)
+  const buildParams = async (state: State): Promise<{ address: string }> => {
+    const context = composeContext({ state, template: seeBalancesTemplate });
+    const params = (await generateObjectDeprecated({
+      runtime,
+      context,
+      modelClass: ModelClass.SMALL,
+    })) as { address?: string };
+
+    let addr = params.address?.trim();
+    if (!addr || !addr.startsWith("0x")) {
+      const fallback = runtime.getSetting("EVM_PUBLIC_ADDRESS");
+      if (!fallback || !fallback.startsWith("0x")) {
+        throw new Error("No s'ha pogut determinar cap adreça Ethereum.");
+      }
+      addr = fallback.trim();
+    }
+    return { address: addr };
+  };
+
+  // 2) Crida al servei real
+  const seeBalances = async (state: State): Promise<BalanceResult> => {
+    const { address } = await buildParams(state);
+    return balanceService(runtime).getBalanceAndTx(address);
+  };
+
+  return { seeBalances };
+};
+export const addressService = (runtime: IAgentRuntime) => {
+  /**
+   * Resoldrà la adreça Ethereum a partir de:
+   * 1) message.content.address
+   * 2) message.content.alias → state.aliases
+   * 3) state.targetAddress
+   * 4) fallback a EVM_PUBLIC_ADDRESS d’entorn
+   */
+  const resolveAddress = (
+    state: State,
+    content: { address?: unknown; alias?: unknown; error?: unknown }
+  ): string => {
+    if (typeof content.error === "string") {
+      throw new Error(content.error);
+    }
+
+    let addr: string | undefined;
+    if (typeof content.address === "string") {
+      addr = content.address.trim();
+      elizaLogger.info(`Address from content.address: ${addr}`);
+    } else if (
+      typeof content.alias === "string" &&
+      state.aliases &&
+      typeof state.aliases[content.alias] === "string"
+    ) {
+      addr = (state.aliases[content.alias] as string).trim();
+      elizaLogger.info(`Address from alias '${content.alias}': ${addr}`);
+    } else if (typeof state.targetAddress === "string") {
+      addr = state.targetAddress.trim();
+      elizaLogger.info(`Address from state.targetAddress: ${addr}`);
+    } else {
+      // fallback a la variable d’entorn
+      const envAddr = runtime.getSetting("EVM_PUBLIC_ADDRESS");
+      if (envAddr && envAddr.trim().startsWith("0x")) {
+        addr = envAddr.trim();
+        elizaLogger.info(`Fallback address from EVM_PUBLIC_ADDRESS: ${addr}`);
+      }
+    }
+
+    if (!addr) {
+      throw new Error(
+        "No s'ha pogut determinar cap adreça Ethereum de la qual mostrar el balanç."
+      );
+    }
+    return addr;
+  };
+
+  return { resolveAddress };
 };

@@ -16,3 +16,16 @@ export const categoryIndexes: { [key: string]: number } = {
     "estalvi_llarg_termini": 3,
     // Afegir altres categories si cal
 };
+/** Resultat estructurat que retornarà el servei */
+export interface BalanceResult {
+  address: string;
+  balanceEth: string;
+  transactions: {
+    hash: string;
+    from: string;
+    to: string;
+    value: string;   // valor en ETH
+    blockNumber: number;
+    timeStamp?: number;
+  }[];
+}

@@ -93,3 +93,41 @@ If there's an error, the output should be:
 
 Now, process the user's request and provide your response.
 `;
+
+export const seeBalancesTemplate = `You are an AI assistant specialized in retrieving Ethereum balances.
+First, review the recent messages from the conversation:
+
+<recent_messages>
+{{recentMessages}}
+</recent_messages>
+
+Your goal is to extract which address (or address alias) the user wants the balance for.
+
+1. If the user explicitly provides an Ethereum address, return it in "address".
+2. If the user uses a known alias (e.g. "hipoteca"), map it to the address stored in state.aliases.
+3. If you cannot find any address, set "error" explaining the missing address.
+
+Before providing the final JSON output, show your reasoning process inside <analysis> tags. Follow these steps:
+
+1. Identify the relevant parts of the user's message:
+   - Quote the segment that mentions the Ethereum address.
+   - Quote the segment that mentions the alias (e.g. “hipoteca”), if present.
+
+2. Validate and resolve:
+   - If you quoted an address, ensure it starts with “0x” and is 42 characters long.
+   - If you quoted an alias, ensure that alias exists in state.aliases and retrieve the corresponding address.
+   - If neither is valid or you cannot resolve, prepare an error message.
+
+3. Summarize your analysis:
+   - State which value you chose (“address” or “alias”), or why you failed and will return an error.
+
+4. Provide the final JSON output with exactly these keys and no additional text:
+\`\`\`json
+{
+  "address": string | null,
+  "alias": string | null,
+  "error": string | null
+}
+\`\`\`
+
+Now, process the user's request and provide your response.`;
