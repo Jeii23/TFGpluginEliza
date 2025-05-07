@@ -17,10 +17,15 @@ import { manageSubaccountsExamples } from "../example";
 import { initSubaccountProvider } from "../providers/subaccount";
 import { manageSubaccountsTemplate } from "../template";
 
+// Extensió de la interfície State per incloure objectius de subcomptes
+interface ExtendedState extends State {
+  aliasGoals?: Record<string, string>;
+}
+
 export const manageSubaccountsAction: Action = {
   name: "MANAGE_SUBACCOUNTS",
-  similes: ["MANAGE_SUBACCOUNTS", "LIST_SUBACCOUNTS", "SUBACCOUNTS"],
-  description: "Llista i gestiona els subcomptes derivats a partir de la xpub del wallet.",
+  similes: ["MANAGE_SUBACCOUNTS", "LIST_SUBACCOUNTS", "SUBACCOUNTS", "SET_GOAL"],
+  description: "Llista i gestiona els subcomptes derivats a partir de la xpub del wallet, incloent fixar objectius (goals).",
   validate: async (runtime: IAgentRuntime) => {
     await validateTFGConfig(runtime);
     return true;
@@ -28,84 +33,80 @@ export const manageSubaccountsAction: Action = {
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
-    state: State,
+    state: ExtendedState,
     _options: { [key: string]: unknown },
     callback: HandlerCallback
   ) => {
     try {
+      // 1) Componem o actualitzem l'estat
       if (!state) {
-        state = (await runtime.composeState(message)) as State;
+        state = (await runtime.composeState(message)) as ExtendedState;
       } else {
-        state = await runtime.updateRecentMessageState(state);
+        state = (await runtime.updateRecentMessageState(state)) as ExtendedState;
       }
 
-      const context = composeContext({
-        state,
-        template: manageSubaccountsTemplate,
-      });
-
-      const params = await generateObjectDeprecated({
+      // 2) Generem paràmetres des del template
+      const context = composeContext({ state, template: manageSubaccountsTemplate });
+      const params = (await generateObjectDeprecated({
         runtime,
         context,
         modelClass: ModelClass.SMALL,
-      });
+      })) as { action: string; category?: string; goal?: string };
 
+      // 3) Inicialitzem el provider de subcomptes
       const subaccountProvider = await initSubaccountProvider(runtime);
-      
+
       switch (params.action) {
-        case "list":
+        case "list": {
           const subaccounts = subaccountProvider.getAllSubaccounts();
           elizaLogger.success("Subcomptes derivats correctament.");
-          if (callback) {
-            callback({
-              text: `Subcomptes:\n${util.inspect(subaccounts, { depth: null })}`,
-              content: {
-                success: true,
-                subaccounts,
-              },
-            });
-          }
+          callback({
+            text: `Subcomptes:\n${util.inspect(subaccounts, { depth: null })}`,
+            content: { success: true, subaccounts },
+          });
           break;
+        }
 
-        case "create":
-          // Per a crear un nou subcompte, utilitzem el mètode createSubaccount
+        case "create": {
+          if (!params.category) throw new Error("Falta la categoria per crear subcompte.");
           const category = params.category.toLowerCase();
           const subaccount = subaccountProvider.getSubaccount(category) ||
                              subaccountProvider.createSubaccount(category);
-          
-          if (subaccount) {
-            elizaLogger.success(`Subcompte per a la categoria '${category}' creat correctament.`);
-            if (callback) {
-              callback({
-                text: `Subcompte per a la categoria '${category}' creat correctament.\nAdreça: ${subaccount}`,
-                content: {
-                  success: true,
-                  category,
-                  address: subaccount,
-                },
-              });
-            }
-          } else {
-            throw new Error(`No s'ha pogut crear el subcompte per a la categoria '${category}'`);
-          }
+          if (!subaccount) throw new Error(`No s'ha pogut crear subcompte '${category}'.`);
+          elizaLogger.success(`Subcompte '${category}' creat amb èxit.`);
+          callback({
+            text: `Subcompte '${category}' creat correctament.\nAdreça: ${subaccount}`,
+            content: { success: true, category, address: subaccount },
+          });
           break;
+        }
 
-        case "delete":
-          throw new Error("L'acció 'delete' no està implementada encara");
+        case "set_goal":
+        case "setGoal": {
+          if (!params.category || !params.goal) {
+            throw new Error("Per establir un objectiu, cal indicar categoria i quantitat (e.g. '10 ETH').");
+          }
+          const category = params.category.toLowerCase();
+          // Emmagatzemar l'objectiu al state
+          state.aliasGoals = { ...(state.aliasGoals || {}), [category]: params.goal };
           
+          elizaLogger.success(`Objectiu per '${category}' establert a ${params.goal}.`);
+          callback({
+            text: `🎯 Objectiu per a '${category}' establert: ${params.goal}.`,
+            content: { success: true, category, goal: params.goal },
+          });
+        }
+
         default:
-          throw new Error(`Acció '${params.action}' no reconeguda`);
+          throw new Error(`Acció '${params.action}' no reconeguda.`);
       }
-      
       return true;
     } catch (error: any) {
-      elizaLogger.error("Error en la gestió de subcomptes:", error);
-      if (callback) {
-        callback({
-          text: `Error en la gestió de subcomptes: ${error.message}`,
-          content: { error: error.message },
-        });
-      }
+      elizaLogger.error("Error en MANAGE_SUBACCOUNTS action:", error);
+      callback({
+        text: `⚠️ Error en gestió de subcomptes: ${error.message}`,
+        content: { error: error.message },
+      });
       return false;
     }
   },

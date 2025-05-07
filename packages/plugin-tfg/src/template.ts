@@ -52,16 +52,18 @@ First, review the recent messages from the conversation:
 Your goal is to extract the following information about the requested subaccount management action:
 1. "action": the subaccount management action requested by the user. It can be "list" or "create". If no clear action is provided, default to "list".
 2. "category": (only required if the action is "create") the name of the category for which a new subaccount should be derived. The category name should be in lowercase. If the category is not provided when the action is "create", then return an error message indicating the missing category.
+3. "goal": (only for "set_goal") a string describing the target balance (e.g. "10 ETH").
 
 Before providing the final JSON output, show your reasoning process inside <analysis> tags. Follow these steps:
 
 1. Identify the relevant parts of the user's message:
    - Quote the segment that mentions the desired subaccount management action (e.g., "list" or "create").
    - Quote the segment that mentions the category name, if the action is "create".
-
+   - Quote the segment that mentions the goal amount, if the action is "set_goal"
 2. Validate the extracted information:
    - For "action", if missing or unclear, default to "list".
    - For "category", if the action is "create", ensure it is provided and in lowercase; if missing, report an error.
+   - For "goal", if action is "set_goal", ensure it is provided and is a valid string (e.g. contains a number and optional unit).
 
 3. Summarize your analysis.
 
