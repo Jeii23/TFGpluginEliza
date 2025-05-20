@@ -7,6 +7,7 @@ import {
   HandlerCallback,
   IAgentRuntime,
   Memory,
+  MemoryManager,
   State,
 } from "@elizaos/core";
 import { validateTFGConfig } from "../environment";
@@ -24,7 +25,6 @@ export const createUnsignedTxAction: Action = {
   ],
   description: "Generate a JSON for an unsigned transaction, with the fields 'from', 'to', and 'value'.",
   validate: async (runtime: IAgentRuntime) => {
-    // Validem la configuració del TFG per assegurar-nos que el camp PUBLIC_ADDRESS està definit
     await validateTFGConfig(runtime);
     return true;
   },
@@ -32,46 +32,63 @@ export const createUnsignedTxAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state: State,
-    _options: { [key: string]: unknown },
+    _options,
     callback: HandlerCallback
   ) => {
     try {
-      // Validem la configuració
+      // 1) Validació i estat
       await validateTFGConfig(runtime);
-
-      // **** Canvi Realitzat: Actualitzem l'estat per incloure el missatge recent ****
       if (!state) {
         state = (await runtime.composeState(message)) as State;
       } else {
         state = await runtime.updateRecentMessageState(state);
       }
-      // Log per comprovar l'estat actualitzat
-      //elizaLogger.debug("State actualitzat:",util.inspect(message, { depth: 2, maxArrayLength: 10 }));
 
-      // ***************************************************************************
-
-      // Creem el servei per construir la transacció unsigned
+      // 2) Generació de la transacció unsigned
       const unsignedTxService = createUnsignedTxService(runtime);
-
-      // Generem la transacció unsigned a partir de l'estat actual (ara amb el missatge actualitzat)
       const unsignedTx = await unsignedTxService.createUnsignedTx(state);
-
       elizaLogger.success("Successfully created an unsigned transaction");
 
       if (callback) {
-        callback({
+        // 3) Respondre al flux de conversa
+        await callback({
           text: `Successfully created an unsigned transaction: ${JSON.stringify(unsignedTx, null, 2)}`,
           content: {
             success: true,
             unsignedTx,
           },
         });
-        return true;
+
+        // 4) Generar embedding “dummy” de 1536 zeros
+        const embeddingVector: number[] = new Array(1536).fill(0);
+
+        // 5) Instanciar MemoryManager per “facts”
+        const memoryManager = new MemoryManager({
+          runtime,
+          tableName: "facts",
+        });
+
+        // 6) Construir la memòria de fets
+        const factMemory: Memory = {
+          userId: message.userId,
+          agentId: runtime.agentId,
+          roomId: message.roomId,
+          content: {
+            text: `Unsigned TX created: ${JSON.stringify(unsignedTx)}`,
+          },
+          embedding: embeddingVector,
+          unique: true,
+        };
+
+        // 7) Desa la memòria
+        await memoryManager.createMemory(factMemory, false);
       }
+
+      return true;
     } catch (error: any) {
       elizaLogger.error("Error in CREATE_UNSIGNED_TX handler:", error);
       if (callback) {
-        callback({
+        await callback({
           text: `Error creating unsigned transaction: ${error.message}`,
           content: { error: error.message },
         });
