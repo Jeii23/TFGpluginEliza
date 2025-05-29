@@ -62,12 +62,12 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
     if (!unsignedTx) {
       throw new Error("Error: No s'han pogut generar els paràmetres per la transacció unsigned.");
     }
-  
+  /*
     // Validem que existeixi el camp 'toAddress'.
     if (!unsignedTx.toAddress || unsignedTx.toAddress.trim() === "") {
       throw new Error("Error: Falta 'toAddress' en els paràmetres de la transacció unsigned.");
     }
-  
+  */
     // Tractem el fromAddress de la mateixa manera que toAddress:
     // Si el model ha retornat un valor vàlid per fromAddress, l'utilitzem; en cas contrari, fem fallback a EVM_PUBLIC_ADDRESS.
     if (unsignedTx.fromAddress && unsignedTx.fromAddress.trim().startsWith("0x")) {
@@ -77,8 +77,6 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
       const envFromAddress = runtime.getSetting("EVM_PUBLIC_ADDRESS");
       if (envFromAddress && envFromAddress.trim().startsWith("0x")) {
         unsignedTx.fromAddress = envFromAddress.trim() as `0x${string}`;
-      } else {
-        unsignedTx.fromAddress = "0xElTeuCompte" as `0x${string}`;
       }
     }
   
@@ -102,15 +100,19 @@ export const createUnsignedTxService = (runtime: IAgentRuntime) => {
 
       // Log abans de retornar
       elizaLogger.debug("Transacció unsigned final:", JSON.stringify({
-        from: params.fromAddress ? params.fromAddress.trim() : "0xElTeuCompte",
-        to: params.toAddress ? params.toAddress.trim() : "0xReceptorAddress1234567890abcdef",
+        from: params.fromAddress ,
+        to: params.toAddress ,
         value: valueHex,
+        data: params.data,
+
       }, null, 2));
 
       return {
-        from: params.fromAddress ? params.fromAddress.trim() : "0xElTeuCompte",
-        to: params.toAddress ? params.toAddress.trim() : "0xReceptorAddress1234567890abcdef",
+        from: params.fromAddress,
+        to: params.toAddress ,
         value: valueHex,
+        data: params.data,
+
       };
 
     } catch (error: any) {

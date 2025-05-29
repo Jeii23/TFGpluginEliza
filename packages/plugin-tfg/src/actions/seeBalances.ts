@@ -12,7 +12,7 @@ import {
 } from "@elizaos/core";
 
 import { validateTFGConfig } from "../environment";
-import { balanceService, addressService,generateUUIDv4 } from "../services";
+import { balanceService, addressService } from "../services";
 import { getSeeBalancesExamples } from "../example";
 import type { BalanceResult } from "../type";
 
