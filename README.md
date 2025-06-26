@@ -1,8 +1,8 @@
 # Desenvolupament d’un agent d’IA per a un wallet d’Ethereum
 
-Un assistent conversacional basat en **ElizaOS** que et permet gestionar **múltiples subcomptes** d’un sol wallet d’Ethereum, crear transaccions **sense signar** i consultar saldos/històrics, tot mantenint el paradigma ***self‑custody*** (les claus privades mai surten del teu control) fileciteturn0file3.
+Un assistent conversacional basat en **ElizaOS** que et permet gestionar **múltiples subcomptes** d’un sol wallet d’Ethereum, crear transaccions **sense signar** i consultar saldos/històrics, tot mantenint el paradigma ***self‑custody*** (les claus privades mai surten del teu control) 
 
-> **Nou!** El projecte **ja inclou una còpia vendored d’ElizaOS** i un **personatge de prova** (\_sample persona\_) perquè puguis començar a xatejar sense configuracions addicionals.
+ El projecte **ja inclou una còpia vendored d’ElizaOS** i un **personatge de prova** (\_sample persona\_) perquè puguis començar a xatejar sense configuracions addicionals.
 
 ---
 
@@ -10,13 +10,13 @@ Un assistent conversacional basat en **ElizaOS** que et permet gestionar **múlt
 
 | Mòdul                   | Què fa?                                                                                                                          |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `manageSubAccounts`     | Llista, crea i etiqueta subcomptes derivats d’una mateixa **xpub** fileciteturn0file1                                         |
-| `createUnsignedTx`      | Genera transaccions Ethereum sense signar (amb camps *from*, *to*, *value* i *data* per a smart‑contracts) fileciteturn0file2 |
-| `seeBalances`           | Recupera saldo i últimes transaccions d’una adreça o àlies a la testnet **Sepolia** fileciteturn0file2                        |
-| Històrics & projeccions | Analitza hàbits de despesa i projecta l’evolució futura dels fons fileciteturn0file2                                          |
-| Persistència de memòria | Guarda accions i context per converses coherents i sense bucles fileciteturn0file2                                            |
+| `manageSubAccounts`     | Llista, crea i etiqueta subcomptes derivats d’una mateixa **xpub**                                          |
+| `createUnsignedTx`      | Genera transaccions Ethereum sense signar (amb camps *from*, *to*, *value* i *data* per a smart‑contracts)  |
+| `seeBalances`           | Recupera saldo i últimes transaccions d’una adreça o àlies a la testnet **Sepolia**                  |
+| Històrics & projeccions | Analitza hàbits de despesa i projecta l’evolució futura dels fons                                          |
+| Persistència de memòria | Guarda accions i context per converses coherents i sense bucles                                           |
 
-> **Limitacions:** Eliza V1 només pot executar **una acció per *prompt*** i, ocasionalment, pot caldre repetir instruccions perquè l’agent les completi correctament fileciteturn0file2.
+> **Limitacions:** Eliza V1 només pot executar **una acció per *prompt*** i, ocasionalment, pot caldre repetir instruccions perquè l’agent les completi correctament.
 
 ---
 
@@ -30,7 +30,7 @@ Un assistent conversacional basat en **ElizaOS** que et permet gestionar **múlt
 | **RPC Ethereum** | Sepolia       | Ex. **QuickNode** o Alchemy                                   |
 | **Wallet**       | MetaMask      | Per signar transaccions                                       |
 
-> ℹ️ **ElizaOS ja ve integrada** dins el directori `vendor/elizaOS`, per tant **no cal instal·lar‑la ni afegir‑la com a dependència**.
+> ℹ️ **ElizaOS ja ve integrada**, per tant **no cal instal·lar‑la ni afegir‑la com a dependència**.
 
 Variables d’entorn principals:
 
@@ -81,9 +81,8 @@ El bot retornarà un JSON d’*unsignedTx* ➡️ obre‑l a `web/tx‑signer`, 
 
 ## 🔒 Seguretat
 
-* **Claus privades fora de perill:** només es fa servir la `xpub`; la signatura final sempre és manual a MetaMask fileciteturn0file3.
+* **Claus privades fora de perill:** només es fa servir la `xpub`; la signatura final sempre és manual a MetaMask.
 * **Mode local recomanat:** els *prompts* enviats a models de núvol podrien quedar registrats.
-* **Accions 1‑a‑1:** cada petició executa una sola acció; per operacions complexes fes passos successius.
 
 ---
 
@@ -92,7 +91,6 @@ El bot retornarà un JSON d’*unsignedTx* ➡️ obre‑l a `web/tx‑signer`, 
 * Migració a **Eliza V2** per executar accions en paral·lel
 * Tests d’engany i sandboxing per millorar la robustesa
 * Assistents per desplegar i verificar *smart‑contracts*
-* Internacionalització (EN/ES) del xat / client
 
 ---
 
