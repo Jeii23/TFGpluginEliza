@@ -25,7 +25,7 @@ import { initSubaccountProvider } from "./providers/subaccount";
  * @param category Nom de la categoria (per exemple, "viatges").
  * @returns Adreça Ethereum derivada corresponent a la categoria.
  */
-function deriveAddress(xpub: string, category: string): string {
+export const deriveAddress = (xpub: string, category: string) => {
   const normalizedCategory = category.toLowerCase();
   const index = categoryIndexes[normalizedCategory];
   if (index === undefined) {

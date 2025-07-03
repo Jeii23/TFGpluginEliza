@@ -7,14 +7,16 @@ import {
   HandlerCallback,
   IAgentRuntime,
   Memory,
-  MemoryManager ,
+  MemoryManager,
   State,
 } from "@elizaos/core";
 
 import { validateTFGConfig } from "../environment";
-import { balanceService, addressService } from "../services";
+import { balanceService, addressService, deriveAddress} from "../services";
 import { getSeeBalancesExamples } from "../example";
 import type { BalanceResult } from "../type";
+import  { categoryIndexes } from "../type";
+
 
 export const seeBalancesAction: Action = {
   name: "SEE_BALANCES",
@@ -56,30 +58,70 @@ export const seeBalancesAction: Action = {
         error?: unknown;
       };
 
-      // Extreure adreça del text si no existeix ja
+      // 2.a) Extreu adreça 0x… si n’hi ha una al text
       if (typeof content.address !== "string" && typeof content.text === "string") {
-        const regex = /(0x[a-fA-F0-9]{40})/;
-        const m = (content.text as string).match(regex);
+        const m = (content.text as string).match(/(0x[a-fA-F0-9]{40})/);
         if (m) {
           content.address = m[1].trim();
-          elizaLogger.info(`Parsed address from text: ${content.address}`);
         }
       }
 
+      /* ──────────────── [NOU] ──────────────── */
+
+      // 2.b) Construeix aliasMap
+      let aliasMap: Record<string, string> | undefined;
+
+      if (state.aliases && typeof state.aliases === "object") {
+        aliasMap = state.aliases as Record<string, string>;
+      } else if (typeof state.providers === "string") {
+        const match = state.providers.match(/\{[\s\S]*?\}/);  // ← no greedy
+        if (match) {
+          try {
+            aliasMap = JSON.parse(match[0]);
+          } catch {
+            const cleaned = match[0]
+              .replace(/\/\/.*$/gm, "")
+              .replace(/,\s*}/g, "}");
+            aliasMap = JSON.parse(cleaned);
+          }
+        }
+      }
+
+      if (!aliasMap && runtime.getSetting("XPUB")) {
+        aliasMap = {};
+        for (const cat of Object.keys(categoryIndexes)) {
+          aliasMap[cat] = deriveAddress(runtime.getSetting("XPUB"), cat);
+        }
+      }
+
+      if (aliasMap) state.aliases = aliasMap;
+
+      // 2.d) Si encara no tenim address ni alias, mira si el text conté un àlies
+      if (
+        !content.alias &&
+        typeof content.text === "string" &&
+        aliasMap
+      ) {
+        for (const alias of Object.keys(aliasMap)) {
+          if (new RegExp(`\\b${alias}\\b`, "i").test(content.text as string)) {
+            content.alias = alias;          // ← «hipoteca», «cotxe», …
+            break;
+          }
+        }
+      }
+
+      /* ──────────────── FI BLOCS NOUS ──────────────── */
+
+      // 2.e) Ara sí, resol l’adreça
       const { resolveAddress } = addressService(runtime);
       const address = resolveAddress(state, content);
-      elizaLogger.info(`Resolved address: ${address}`);
-      // Debug: veure address resolta
-      elizaLogger.debug("💡 [DEBUG] Resolved address:", address);
 
       // 3) Crida al servei
       elizaLogger.info(`Calling balanceService.getBalanceAndTx for ${address}`);
       const { getBalanceAndTx } = balanceService(runtime);
       const balRes: BalanceResult = await getBalanceAndTx(address);
-      elizaLogger.debug("Raw balance result:", util.inspect(balRes, { depth: 2 }));
 
       // 4) Preparar map d'àlies (subcomptes)
-      let aliasMap: Record<string, string> | undefined;
       if (state.aliases && typeof state.aliases === 'object') {
         aliasMap = state.aliases as Record<string, string>;
       } else if (typeof state.providers === 'string') {
@@ -131,7 +173,7 @@ export const seeBalancesAction: Action = {
         success: true,
         balanceEth: balRes.balanceEth,
         transactions: balRes.transactions,
-      
+
         attachments: [
           {
             id: "balance-json",
@@ -144,23 +186,23 @@ export const seeBalancesAction: Action = {
           }
         ]
       };
-      
+
       elizaLogger.debug("💡 [DEBUG] Payload for callback:", util.inspect(payload, { depth: null }));
 
-     
+
       if (callback) {
         await callback(payload);
-      
+
         // 1) Genera un vector "dummy" de 1536 dimensions
         //    Si més endavant vols posar valors reals, simplement reemplaca aquest array.
         const embeddingVector: number[] = new Array(1536).fill(0);
-      
+
         // 2) Instancia el MemoryManager pel canal "facts"
         const memoryManager = new MemoryManager({
           runtime,
           tableName: "facts",
         });
-      
+
         // 3) Construeix l'objecte Memory
         const factMemory: Memory = {
 
@@ -171,12 +213,12 @@ export const seeBalancesAction: Action = {
           embedding: embeddingVector,   // <-- vector de longitud 1536
           unique: true,
         };
-      
+
         // 4) Desa la memòria
         await memoryManager.createMemory(factMemory, false);
       }
-      
-      
+
+
 
       elizaLogger.success(
         `SEE_BALANCES successful for ${address}: ${balRes.balanceEth} ETH`
